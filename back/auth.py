@@ -5,14 +5,18 @@ from datetime import datetime
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+import logging
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = '021888274047Mm!'
-app.config['MYSQL_DB'] = 'recipemaker'
+# Configure MySQL using environment variables
+app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
+app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
+app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
+app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor' # Makes database into dictionary format - userful because it is in JSON format
 
 mysql = MySQL(app)
@@ -51,7 +55,7 @@ def create_user():
         return jsonify({"error": str(e)}), 400
 
 @app.route('/users/<int:user_id>', methods=['DELETE'])
-def delete_customer(user_id):
+def delete_user(user_id):
     try:
         cur = mysql.connection.cursor()
         cur.execute("DELETE FROM Users WHERE UserID = %s", (user_id,))
@@ -81,6 +85,28 @@ def update_user(user_id):
         return jsonify({"message": "User updated successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+@app.route('/login', methods=['POST'])
+def login():
+    try:
+        cur = mysql.connection.cursor()
+        user_data = request.json
+        username = user_data.get("Username")
+        password = user_data.get("Password")
+
+        # Fetch user with the provided username
+        cur.execute("SELECT * FROM Users WHERE Username = %s", (username,))
+        user = cur.fetchone()
+        cur.close()
+
+        # Check if user exists and password matches
+        if user and user['Password'] == password:
+            return jsonify({"message": "Login successful", "user": user}), 200
+        else:
+            return jsonify({"message": "Invalid username or password"}), 401
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 
 if __name__ == "__main__":
     app.run(debug=True)
